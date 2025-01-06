@@ -52,27 +52,39 @@ public static class GameNewsHelper
 
     public static async Task<List<GameNews>> GetGameNews(string category)
     {
-        var tasks = GameSites.Select(site => GetNewsFromSite(site, category));
-        var allNewsLists = await Task.WhenAll(tasks);
+        var allNews = new List<GameNews>();
         
-        var combinedNews = new List<GameNews>();
-        
-        // Prendiamo 5 notizie da ogni sito che ha restituito risultati
-        foreach (var siteNews in allNewsLists)
+        foreach (var site in GameSites)
         {
-            if (siteNews.Any())
+            try 
             {
-                var relevantNews = siteNews
-                    .Where(n => string.IsNullOrEmpty(category) || IsRelevantToCategory(n.Title.ToLower() + " " + n.Category.ToLower(), category))
-                    .Take(5);
-                    
-                combinedNews.AddRange(relevantNews);
+                Console.WriteLine($"Caricamento notizie da: {site}");
+                var siteNews = await GetNewsFromSite(site, category);
+                Console.WriteLine($"Trovate {siteNews.Count} notizie da {site}");
+                
+                if (siteNews.Any())
+                {
+                    var relevantNews = siteNews
+                        .Where(n => string.IsNullOrEmpty(category) || IsRelevantToCategory(n.Title.ToLower() + " " + n.Category.ToLower(), category))
+                        .Take(5)
+                        .ToList();
+                        
+                    Console.WriteLine($"Aggiunte {relevantNews.Count} notizie rilevanti da {site}");
+                    allNews.AddRange(relevantNews);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Errore nel caricamento delle notizie da {site}: {ex.Message}");
             }
         }
 
-        return combinedNews
+        var orderedNews = allNews
             .OrderByDescending(n => n.Date)
             .ToList();
+            
+        Console.WriteLine($"Totale notizie ordinate: {orderedNews.Count}");
+        return orderedNews;
     }
 
     private static async Task<List<GameNews>> GetNewsFromSite(string siteUrl, string category)
@@ -82,13 +94,21 @@ public static class GameNewsHelper
             var news = new List<GameNews>();
             var web = new HtmlWeb();
             var doc = await web.LoadFromWebAsync(siteUrl);
+            Console.WriteLine($"Pagina caricata da {siteUrl}");
 
             var siteName = new Uri(siteUrl).Host.Replace("www.", "");
-            var siteColor = SiteColors.GetValueOrDefault(siteName, "[#FFFFFF]"); // Bianco come colore predefinito
-            
+            var siteColor = SiteColors.GetValueOrDefault(siteName, "[#FFFFFF]");
+
             // Selettori personalizzati per ogni sito
             var articleNodes = siteName switch
             {
+                "pcgamer.com" => doc.DocumentNode.SelectNodes("//div[contains(@class, 'listingResult')]"),
+                "ign.com" => doc.DocumentNode.SelectNodes("//div[contains(@class, 'article-item')]"),
+                "gamespot.com" => doc.DocumentNode.SelectNodes("//article[contains(@class, 'card-item')]"),
+                "rockpapershotgun.com" => doc.DocumentNode.SelectNodes("//article[contains(@class, 'summary')]"),
+                "eurogamer.net" => doc.DocumentNode.SelectNodes("//div[contains(@class, 'article')]"),
+                "pcgamesn.com" => doc.DocumentNode.SelectNodes("//article[contains(@class, 'article')]"),
+                "gamespace.com" => doc.DocumentNode.SelectNodes("//article[contains(@class, 'post')]"),
                 "spaziogames.it" => doc.DocumentNode.SelectNodes("//article[contains(@class, 'article-preview')]") ??
                                    doc.DocumentNode.SelectNodes("//div[contains(@class, 'article-preview')]"),
                 _ => doc.DocumentNode.SelectNodes("//article") ?? 
@@ -96,6 +116,8 @@ public static class GameNewsHelper
                      doc.DocumentNode.SelectNodes("//div[contains(@class, 'news-item')]") ??
                      doc.DocumentNode.SelectNodes("//div[contains(@class, 'post')]")
             };
+
+            Console.WriteLine($"Trovati {articleNodes?.Count ?? 0} articoli da {siteUrl}");
 
             if (articleNodes != null)
             {
@@ -105,17 +127,37 @@ public static class GameNewsHelper
                     {
                         var titleNode = siteName switch
                         {
+                            "pcgamer.com" => node.SelectSingleNode(".//h3[@class='article-name']"),
+                            "ign.com" => node.SelectSingleNode(".//h3"),
+                            "gamespot.com" => node.SelectSingleNode(".//h4"),
+                            "rockpapershotgun.com" => node.SelectSingleNode(".//h2"),
+                            "eurogamer.net" => node.SelectSingleNode(".//h2"),
+                            "pcgamesn.com" => node.SelectSingleNode(".//h2"),
+                            "gamespace.com" => node.SelectSingleNode(".//h2"),
                             "spaziogames.it" => node.SelectSingleNode(".//h2[contains(@class, 'article-preview__title')]") ??
                                                node.SelectSingleNode(".//h3[contains(@class, 'article-preview__title')]"),
                             _ => node.SelectSingleNode(".//h3") ?? 
                                  node.SelectSingleNode(".//h2") ??
                                  node.SelectSingleNode(".//a[contains(@class, 'title')]")
                         };
-                                      
-                        var linkNode = node.SelectSingleNode(".//a[contains(@href, '/')]");
-                        var dateNode = node.SelectSingleNode(".//time") ?? 
-                                     node.SelectSingleNode(".//*[contains(@class, 'date')]") ??
-                                     node.SelectSingleNode(".//*[contains(@class, 'article-preview__date')]");
+
+                        var linkNode = siteName switch
+                        {
+                            "pcgamer.com" => node.SelectSingleNode(".//a[@class='article-link']"),
+                            "ign.com" => node.SelectSingleNode(".//a[contains(@class, 'article-link')]"),
+                            "gamespot.com" => node.SelectSingleNode(".//a"),
+                            _ => node.SelectSingleNode(".//a[contains(@href, '/')]")
+                        };
+
+                        var dateNode = siteName switch
+                        {
+                            "pcgamer.com" => node.SelectSingleNode(".//time"),
+                            "ign.com" => node.SelectSingleNode(".//time"),
+                            "gamespot.com" => node.SelectSingleNode(".//time"),
+                            _ => node.SelectSingleNode(".//time") ?? 
+                                 node.SelectSingleNode(".//*[contains(@class, 'date')]") ??
+                                 node.SelectSingleNode(".//*[contains(@class, 'article-preview__date')]")
+                        };
 
                         if (titleNode != null && linkNode != null)
                         {
@@ -128,7 +170,6 @@ public static class GameNewsHelper
 
                             var date = dateNode != null ? ParseDate(dateNode.GetAttributeValue("datetime", dateNode.InnerText)) : DateTime.Now;
 
-                            // Estrai eventuali tag o categorie dall'articolo
                             var categoryTags = node.SelectNodes(".//*[contains(@class, 'tag') or contains(@class, 'category') or contains(@class, 'article-preview__category')]");
                             var articleCategories = categoryTags != null 
                                 ? string.Join(" ", categoryTags.Select(t => t.InnerText.Trim()))
@@ -136,7 +177,7 @@ public static class GameNewsHelper
 
                             news.Add(new GameNews
                             {
-                                Title = $"{siteColor}{title}[/]", // Aggiungi il colore al titolo
+                                Title = $"{siteColor}{title}[/]",
                                 Url = url,
                                 Source = siteName,
                                 Date = date,
@@ -144,9 +185,9 @@ public static class GameNewsHelper
                             });
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Ignora errori nel parsing del singolo articolo
+                        Console.WriteLine($"Errore nel parsing di un articolo da {siteUrl}: {ex.Message}");
                         continue;
                     }
                 }
