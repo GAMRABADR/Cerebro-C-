@@ -26,62 +26,53 @@ public class HelpCommand : ModuleBase<SocketCommandContext>
 
         var builder = new EmbedBuilder()
             .WithTitle("📚 Comandi Disponibili")
-            .WithColor(Color.Blue)
-            .WithDescription("Ecco i comandi che puoi utilizzare:");
+            .WithColor(Color.Blue);
 
-        var modules = _commands.Modules.GroupBy(m => m.Name);
-        
-        foreach (var module in modules)
-        {
-            var moduleBuilder = new StringBuilder();
-            bool hasCommands = false;
+        var embedFields = new List<EmbedFieldBuilder>();
 
-            foreach (var command in module.First().Commands)
-            {
-                bool canShow = false;
-                var preconditions = command.Preconditions
-                    .Concat(command.Module.Preconditions)
-                    .ToList();
+        // Comandi generali (visibili a tutti)
+        var generalCommands = new StringBuilder();
+        generalCommands.AppendLine("`!help` - Mostra questo messaggio");
+        generalCommands.AppendLine("`!join` - Fa entrare il bot nel canale vocale");
+        generalCommands.AppendLine("`!leave` - Fa uscire il bot dal canale vocale");
+        generalCommands.AppendLine("`!autojoin` - Attiva/disattiva l'auto-join nei canali vocali");
+        embedFields.Add(new EmbedFieldBuilder()
+            .WithName("🌐 Comandi Generali")
+            .WithValue(generalCommands.ToString())
+            .WithIsInline(false));
 
-                // Controlla se l'utente può usare il comando
-                if (preconditions.Any())
-                {
-                    var result = await command.CheckPreconditionsAsync(Context, _services);
-                    canShow = result.IsSuccess;
-                }
-                else
-                {
-                    canShow = true; // Se non ci sono precondizioni, tutti possono vedere il comando
-                }
-
-                // Override per staff
-                if (isStaff)
-                {
-                    canShow = true;
-                }
-
-                if (canShow)
-                {
-                    hasCommands = true;
-                    var parameters = command.Parameters.Select(p => $"[{p.Name}]");
-                    var paramString = parameters.Any() ? " " + string.Join(" ", parameters) : "";
-                    
-                    moduleBuilder.AppendLine($"▫️ `!{command.Name}{paramString}`");
-                    if (!string.IsNullOrEmpty(command.Summary))
-                        moduleBuilder.AppendLine($"  *{command.Summary}*");
-                }
-            }
-
-            if (hasCommands)
-            {
-                builder.AddField(module.Key ?? "Generale", moduleBuilder.ToString());
-            }
-        }
-
-        // Aggiungi una nota per gli admin/mod
+        // Comandi di moderazione (visibili solo a moderatori e admin)
         if (isStaff)
         {
-            builder.WithFooter("👑 Hai accesso a tutti i comandi come membro dello staff");
+            var moderationCommands = new StringBuilder();
+            moderationCommands.AppendLine("`!kick @utente [motivo]` - Espelle un utente dal server");
+            moderationCommands.AppendLine("`!ban @utente [motivo]` - Bandisce un utente dal server");
+            moderationCommands.AppendLine("`!clear [numero]` - Elimina un numero specifico di messaggi");
+            moderationCommands.AppendLine("`!mute @utente [durata]` - Silenzia un utente");
+            moderationCommands.AppendLine("`!unmute @utente` - Rimuove il silenziamento da un utente");
+            embedFields.Add(new EmbedFieldBuilder()
+                .WithName("🛡️ Comandi di Moderazione")
+                .WithValue(moderationCommands.ToString())
+                .WithIsInline(false));
+        }
+
+        // Comandi di amministrazione (visibili solo agli admin)
+        if (isAdmin)
+        {
+            var adminCommands = new StringBuilder();
+            adminCommands.AppendLine("`!restart` - Riavvia il bot");
+            adminCommands.AppendLine("`!shutdown` - Spegne il bot");
+            adminCommands.AppendLine("`!setwelcome #canale` - Imposta il canale di benvenuto");
+            adminCommands.AppendLine("`!setlogchannel #canale` - Imposta il canale per i log");
+            embedFields.Add(new EmbedFieldBuilder()
+                .WithName("⚙️ Comandi di Amministrazione")
+                .WithValue(adminCommands.ToString())
+                .WithIsInline(false));
+        }
+
+        foreach (var field in embedFields)
+        {
+            builder.AddField(field);
         }
 
         await ReplyAsync(embed: builder.Build());

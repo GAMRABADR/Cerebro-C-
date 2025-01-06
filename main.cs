@@ -3,6 +3,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
+using System.IO;
 
 namespace IA_CEREBRO;
 
@@ -69,17 +70,42 @@ public class Program
 
     private string GetToken()
     {
-        // First try to get token from environment variable
-        var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
-        
-        if (string.IsNullOrEmpty(token))
+        try
         {
-            Console.WriteLine("WARNING: Discord token not found in environment variables!");
-            throw new Exception("Token not found! Please ensure DISCORD_TOKEN is set in your environment variables or Replit Secrets.");
+            // Prova a leggere dal file .env
+            if (File.Exists(".env"))
+            {
+                Console.WriteLine("Trovato file .env, lettura del token...");
+                string[] lines = File.ReadAllLines(".env");
+                foreach (string line in lines)
+                {
+                    if (line.StartsWith("DISCORD_TOKEN="))
+                    {
+                        string token = line.Substring("DISCORD_TOKEN=".Length).Trim();
+                        if (!string.IsNullOrEmpty(token))
+                        {
+                            Console.WriteLine("Token letto con successo dal file .env");
+                            return token;
+                        }
+                    }
+                }
+            }
+
+            // Se non trova nel file .env, prova le variabili d'ambiente
+            var envToken = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
+            if (!string.IsNullOrEmpty(envToken))
+            {
+                Console.WriteLine("Token trovato nelle variabili d'ambiente");
+                return envToken;
+            }
+
+            throw new Exception("Token non trovato! Assicurati che il file .env contenga DISCORD_TOKEN=il_tuo_token");
         }
-        
-        Console.WriteLine("Successfully retrieved Discord token");
-        return token;
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore nella lettura del token: {ex.Message}");
+            throw;
+        }
     }
 
     private Task LogAsync(LogMessage log)
