@@ -61,20 +61,48 @@ public class AudioCommands : ModuleBase<SocketCommandContext>
                 return;
             }
 
+            // Verifica i permessi del bot
+            var botPerms = Context.Guild.CurrentUser.GetPermissions(targetChannel);
+            if (!botPerms.Connect || !botPerms.Speak)
+            {
+                await ReplyAsync("❌ Non ho i permessi necessari per unirmi al canale vocale! Ho bisogno dei permessi di Connessione e Parla.");
+                return;
+            }
+
             // Se il bot è in un altro canale, prima disconnettilo
             if (Context.Guild.CurrentUser.VoiceChannel != null)
             {
                 await Context.Guild.CurrentUser.VoiceChannel.DisconnectAsync();
                 ConnectedChannels.TryRemove(Context.Guild.Id, out _);
+                // Piccola pausa per assicurarsi che la disconnessione sia completata
+                await Task.Delay(1000);
             }
 
-            await targetChannel.ConnectAsync();
-            ConnectedChannels.TryAdd(Context.Guild.Id, targetChannel);
-            await ReplyAsync($"✅ Mi sono unito al canale vocale {targetChannel.Name}!");
+            // Tentativo di connessione con timeout più lungo
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            try
+            {
+                await targetChannel.ConnectAsync(selfDeaf: false, selfMute: false, external: false).WaitAsync(cts.Token);
+                ConnectedChannels.TryAdd(Context.Guild.Id, targetChannel);
+                await ReplyAsync($"✅ Mi sono unito al canale vocale {targetChannel.Name}!");
+            }
+            catch (OperationCanceledException)
+            {
+                await ReplyAsync("❌ Non sono riuscito a unirmi al canale: Tempo scaduto. Riprova tra qualche secondo.");
+                return;
+            }
         }
         catch (Exception ex)
         {
-            await ReplyAsync($"❌ Non sono riuscito a unirmi al canale: {ex.Message}");
+            var errorMessage = ex.Message;
+            if (ex is Discord.Net.HttpException httpEx)
+            {
+                errorMessage = httpEx.Reason ?? ex.Message;
+            }
+            await ReplyAsync($"❌ Non sono riuscito a unirmi al canale: {errorMessage}");
+            
+            // Log dettagliato dell'errore
+            Console.WriteLine($"Errore durante il join al canale {targetChannel.Name}: {ex}");
         }
     }
 

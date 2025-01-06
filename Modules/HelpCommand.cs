@@ -64,6 +64,7 @@ public class HelpCommand : ModuleBase<SocketCommandContext>
             var adminCommands = new StringBuilder();
             adminCommands.AppendLine("`!autojoin` - Attiva/disattiva l'auto-join nei canali vocali");
             adminCommands.AppendLine("`!join [nomecanale]` - Fa entrare il bot in un canale specifico");
+            adminCommands.AppendLine("`!leave [nomecanale]` - Fa uscire il bot da un canale specifico");
             adminCommands.AppendLine("`!restart` - Riavvia il bot");
             adminCommands.AppendLine("`!shutdown` - Spegne il bot");
             adminCommands.AppendLine("`!setwelcome #canale` - Imposta il canale di benvenuto");
