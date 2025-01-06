@@ -36,66 +36,49 @@ public class Program
 
     public async Task MainAsync()
     {
-        // Avvia il server keep-alive
-        _keepAlive.Start();
+        try 
+        {
+            Console.WriteLine("Starting bot initialization...");
+            // Avvia il server keep-alive
+            _keepAlive.Start();
 
-        _client!.Log += LogAsync;
-        _client!.Ready += ReadyAsync;
-        _client!.MessageReceived += HandleCommandAsync;
+            _client!.Log += LogAsync;
+            _client!.Ready += ReadyAsync;
+            _client!.MessageReceived += HandleCommandAsync;
 
-        // Registra i moduli dei comandi
-        await _commands!.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
+            // Registra i moduli dei comandi
+            await _commands!.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
 
-        string token = GetToken();
+            string token = GetToken();
+            Console.WriteLine("Attempting to connect to Discord...");
+            
+            await _client!.LoginAsync(TokenType.Bot, token);
+            Console.WriteLine("Login successful, starting client...");
+            await _client!.StartAsync();
+            Console.WriteLine("Client started successfully!");
 
-        await _client!.LoginAsync(TokenType.Bot, token);
-        await _client!.StartAsync();
-
-        await Task.Delay(Timeout.Infinite);
+            await Task.Delay(Timeout.Infinite);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Critical error in MainAsync: {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
+            throw;
+        }
     }
 
     private string GetToken()
     {
-        // Prova prima a leggere dalla variabile d'ambiente
+        // First try to get token from environment variable
         var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
         
-        // Se non trovato, prova a leggere dal file .env
         if (string.IsNullOrEmpty(token))
         {
-            try
-            {
-                if (File.Exists(".env"))
-                {
-                    token = File.ReadAllText(".env").Trim();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Errore nella lettura del file .env: {ex.Message}");
-            }
+            Console.WriteLine("WARNING: Discord token not found in environment variables!");
+            throw new Exception("Token not found! Please ensure DISCORD_TOKEN is set in your environment variables or Replit Secrets.");
         }
-
-        // Se ancora non trovato, prova a leggere da chiave.txt per retrocompatibilità
-        if (string.IsNullOrEmpty(token))
-        {
-            try
-            {
-                if (File.Exists("chiave.txt"))
-                {
-                    token = File.ReadAllText("chiave.txt").Trim();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Errore nella lettura del file chiave.txt: {ex.Message}");
-            }
-        }
-
-        if (string.IsNullOrEmpty(token))
-        {
-            throw new Exception("Token non trovato! Assicurati di averlo impostato nel file .env o nella variabile d'ambiente DISCORD_TOKEN");
-        }
-
+        
+        Console.WriteLine("Successfully retrieved Discord token");
         return token;
     }
 
