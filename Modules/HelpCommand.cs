@@ -33,11 +33,11 @@ public class HelpCommand : ModuleBase<SocketCommandContext>
         // Comandi generali (visibili a tutti)
         var generalCommands = new StringBuilder();
         generalCommands.AppendLine("`!help` - Mostra questo messaggio");
-        generalCommands.AppendLine("`!join` - Fa entrare il bot nel canale vocale");
-        generalCommands.AppendLine("`!leave` - Fa uscire il bot dal canale vocale");
-        generalCommands.AppendLine("`!autojoin` - Attiva/disattiva l'auto-join nei canali vocali");
+        generalCommands.AppendLine("`!tempmail` - Genera una email temporanea");
+        generalCommands.AppendLine("`!checkmail` - Controlla i messaggi dell'email temporanea");
+        generalCommands.AppendLine("`!deletetemp` - Elimina l'email temporanea");
         embedFields.Add(new EmbedFieldBuilder()
-            .WithName("🌐 Comandi Generali")
+            .WithName("📌 Comandi Generali")
             .WithValue(generalCommands.ToString())
             .WithIsInline(false));
 
@@ -45,6 +45,8 @@ public class HelpCommand : ModuleBase<SocketCommandContext>
         if (isStaff)
         {
             var moderationCommands = new StringBuilder();
+            moderationCommands.AppendLine("`!join` - Fa entrare il bot nel tuo canale vocale");
+            moderationCommands.AppendLine("`!leave` - Fa uscire il bot dal canale vocale");
             moderationCommands.AppendLine("`!kick @utente [motivo]` - Espelle un utente dal server");
             moderationCommands.AppendLine("`!ban @utente [motivo]` - Bandisce un utente dal server");
             moderationCommands.AppendLine("`!clear [numero]` - Elimina un numero specifico di messaggi");
@@ -60,12 +62,14 @@ public class HelpCommand : ModuleBase<SocketCommandContext>
         if (isAdmin)
         {
             var adminCommands = new StringBuilder();
+            adminCommands.AppendLine("`!autojoin` - Attiva/disattiva l'auto-join nei canali vocali");
+            adminCommands.AppendLine("`!join [nomecanale]` - Fa entrare il bot in un canale specifico");
             adminCommands.AppendLine("`!restart` - Riavvia il bot");
             adminCommands.AppendLine("`!shutdown` - Spegne il bot");
             adminCommands.AppendLine("`!setwelcome #canale` - Imposta il canale di benvenuto");
             adminCommands.AppendLine("`!setlogchannel #canale` - Imposta il canale per i log");
             embedFields.Add(new EmbedFieldBuilder()
-                .WithName("⚙️ Comandi di Amministrazione")
+                .WithName("⚡ Comandi di Amministrazione")
                 .WithValue(adminCommands.ToString())
                 .WithIsInline(false));
         }
