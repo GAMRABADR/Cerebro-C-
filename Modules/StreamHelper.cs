@@ -12,7 +12,7 @@ public class StreamHelper : ModuleBase<SocketCommandContext>
 
     [Command("stream")]
     [RequireUserPermission(GuildPermission.AttachFiles)]
-    public async Task HandleStreamShare(string videoUrl = null)
+    public async Task HandleStreamShare(string? videoUrl = null)
     {
         // Se non c'è un URL, controlla gli allegati
         if (string.IsNullOrEmpty(videoUrl) && Context.Message.Attachments.Count == 0)
@@ -77,6 +77,7 @@ public class StreamHelper : ModuleBase<SocketCommandContext>
     {
         // Qui implementeremo l'integrazione con Streamable API
         // Per ora restituiamo l'URL originale
+        await Task.CompletedTask; // Aggiunto per evitare il warning CS1998
         return videoUrl;
 
         // TODO: Implementare l'integrazione con Streamable
@@ -88,6 +89,7 @@ public class StreamHelper : ModuleBase<SocketCommandContext>
     private async Task<string> OptimizeVideoUrl(string url)
     {
         // Verifica il tipo di URL e ottimizza in base al servizio
+        await Task.CompletedTask; // Aggiunto per evitare il warning CS1998
         if (url.Contains("drive.google.com"))
         {
             // Ottimizza link di Google Drive
@@ -152,5 +154,6 @@ public class StreamHelper : ModuleBase<SocketCommandContext>
             .Build();
 
         await ReplyAsync(embed: embed);
+        await Task.CompletedTask; // Aggiunto per evitare il warning CS1998
     }
 }

@@ -30,9 +30,9 @@ public class ModerationCommands : ModuleBase<SocketCommandContext>
         [Summary("L'utente da espellere")]
         SocketGuildUser user,
         [Summary("Motivo dell'espulsione")]
-        [Remainder] string reason = null)
+        [Remainder] string? reason = null)
     {
-        if (user.Hierarchy >= (Context.User as SocketGuildUser).Hierarchy)
+        if (user.Hierarchy >= (Context.User as SocketGuildUser)!.Hierarchy)
         {
             await ReplyAsync("Non puoi kickare questo utente!");
             return;
@@ -50,9 +50,9 @@ public class ModerationCommands : ModuleBase<SocketCommandContext>
         [Summary("L'utente da bannare")]
         SocketGuildUser user,
         [Summary("Motivo del ban")]
-        [Remainder] string reason = null)
+        [Remainder] string? reason = null)
     {
-        if (user.Hierarchy >= (Context.User as SocketGuildUser).Hierarchy)
+        if (user.Hierarchy >= (Context.User as SocketGuildUser)!.Hierarchy)
         {
             await ReplyAsync("Non puoi bannare questo utente!");
             return;
@@ -72,9 +72,9 @@ public class ModerationCommands : ModuleBase<SocketCommandContext>
         [Summary("Durata del mute in minuti")]
         int minutes,
         [Summary("Motivo del mute")]
-        [Remainder] string reason = null)
+        [Remainder] string? reason = null)
     {
-        if (user.Hierarchy >= (Context.User as SocketGuildUser).Hierarchy)
+        if (user.Hierarchy >= (Context.User as SocketGuildUser)!.Hierarchy)
         {
             await ReplyAsync("Non puoi mutare questo utente!");
             return;

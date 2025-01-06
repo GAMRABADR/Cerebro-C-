@@ -39,17 +39,17 @@ public class Program
         // Avvia il server keep-alive
         _keepAlive.Start();
 
-        _client.Log += LogAsync;
-        _client.Ready += ReadyAsync;
-        _client.MessageReceived += HandleCommandAsync;
+        _client!.Log += LogAsync;
+        _client!.Ready += ReadyAsync;
+        _client!.MessageReceived += HandleCommandAsync;
 
         // Registra i moduli dei comandi
-        await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
+        await _commands!.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
 
         string token = GetToken();
 
-        await _client.LoginAsync(TokenType.Bot, token);
-        await _client.StartAsync();
+        await _client!.LoginAsync(TokenType.Bot, token);
+        await _client!.StartAsync();
 
         await Task.Delay(Timeout.Infinite);
     }
