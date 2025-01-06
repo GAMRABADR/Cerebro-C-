@@ -4,8 +4,6 @@ using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 using System.IO;
-using IA_CEREBRO.Modules;
-using Victoria;
 
 namespace IA_CEREBRO;
 
@@ -15,13 +13,12 @@ public class Program
     private CommandService? _commands;
     private IServiceProvider? _services;
     private readonly KeepAlive _keepAlive;
-    private LavaNode _lavaNode;
 
     public Program()
     {
         var config = new DiscordSocketConfig
         {
-            GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent | GatewayIntents.GuildMembers
+            GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent | GatewayIntents.GuildMembers | GatewayIntents.GuildVoiceStates
         };
 
         _client = new DiscordSocketClient(config);
@@ -30,12 +27,7 @@ public class Program
         _services = new ServiceCollection()
             .AddSingleton(_client)
             .AddSingleton(_commands)
-            .AddLavaNode(x => {
-                x.SelfDeaf = false;
-            })
             .BuildServiceProvider();
-
-        _lavaNode = _services.GetRequiredService<LavaNode>();
 
         _keepAlive = new KeepAlive();
     }
@@ -53,19 +45,9 @@ public class Program
             _client!.Log += LogAsync;
             _client!.Ready += async () =>
             {
-                try
-                {
-                    await _lavaNode.ConnectAsync();
-                    Console.WriteLine("LavaNode connesso con successo!");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Errore durante la connessione di LavaNode: {ex.Message}");
-                }
                 await ReadyAsync();
             };
             _client!.MessageReceived += HandleCommandAsync;
-            _client!.UserVoiceStateUpdated += AudioCommands.HandleVoiceStateUpdated;
 
             // Registra i moduli dei comandi
             await _commands!.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
@@ -136,35 +118,8 @@ public class Program
 
     private async Task ReadyAsync()
     {
-        Console.WriteLine($"⁦{_client.CurrentUser.Username}⁩#{_client.CurrentUser.Discriminator} è online!");
-        await _client.SetGameAsync("!help per i comandi", type: ActivityType.Playing);
-
-        // Se il bot è stato riavviato, invia un messaggio di conferma
-        var startupTime = DateTime.Now;
-        if (File.Exists(Path.Combine(Path.GetTempPath(), "restart_bot.bat")))
-        {
-            await Task.Delay(2000); // Aspetta che il bot sia completamente inizializzato
-            try
-            {
-                var guilds = _client.Guilds;
-                foreach (var guild in guilds)
-                {
-                    var defaultChannel = guild.DefaultChannel;
-                    var currentUser = guild.CurrentUser;
-                    if (defaultChannel != null && 
-                        defaultChannel is ITextChannel textChannel && 
-                        currentUser.GetPermissions(textChannel).SendMessages)
-                    {
-                        await defaultChannel.SendMessageAsync($"✅ Bot riavviato con successo! Sono tornato online alle {startupTime:HH:mm:ss}");
-                        break;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Errore nell'invio del messaggio di riavvio: {ex.Message}");
-            }
-        }
+        await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
+        Console.WriteLine($"Bot connesso come {_client.CurrentUser.Username}");
     }
 
     private async Task HandleCommandAsync(SocketMessage messageParam)
