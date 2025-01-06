@@ -36,6 +36,8 @@ public class HelpCommand : ModuleBase<SocketCommandContext>
         generalCommands.AppendLine("`!tempmail` - Genera una email temporanea");
         generalCommands.AppendLine("`!checkmail` - Controlla i messaggi dell'email temporanea");
         generalCommands.AppendLine("`!deletetemp` - Elimina l'email temporanea");
+        generalCommands.AppendLine("`!news [categoria]` - Mostra le ultime notizie sui videogiochi");
+        generalCommands.AppendLine("`!newshelp` - Mostra le categorie disponibili per le news");
         embedFields.Add(new EmbedFieldBuilder()
             .WithName("📌 Comandi Generali")
             .WithValue(generalCommands.ToString())
