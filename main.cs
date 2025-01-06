@@ -43,6 +43,9 @@ public class Program
         _client.Ready += ReadyAsync;
         _client.MessageReceived += HandleCommandAsync;
 
+        // Registra i moduli dei comandi
+        await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
+
         string token = GetToken();
 
         await _client.LoginAsync(TokenType.Bot, token);

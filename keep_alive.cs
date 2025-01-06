@@ -10,7 +10,7 @@ public class KeepAlive
     public KeepAlive()
     {
         _listener = new HttpListener();
-        _listener.Prefixes.Add("http://+:8080/");
+        _listener.Prefixes.Add("http://0.0.0.0:8080/");
         _serverThread = new Thread(StartServer);
     }
 
