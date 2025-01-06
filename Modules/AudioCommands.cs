@@ -2,26 +2,16 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using System.Collections.Concurrent;
-using Victoria;
-using Victoria.Node;
 
 namespace IA_CEREBRO.Modules;
 
-[Group("audio")]
-[Summary("Comandi per la gestione audio")]
 public class AudioCommands : ModuleBase<SocketCommandContext>
 {
-    private readonly LavaNode _lavaNode;
     private static readonly ConcurrentDictionary<ulong, bool> AutoJoinEnabled = new();
     private static readonly ConcurrentDictionary<ulong, IVoiceChannel> ConnectedChannels = new();
 
-    public AudioCommands(LavaNode lavaNode)
-    {
-        _lavaNode = lavaNode;
-    }
-
     [Command("join")]
-    [Summary("Fa entrare il bot nel tuo canale vocale")]
+    [Summary("Fa entrare il bot nel tuo canale vocale (Solo Moderatori)")]
     [RequireUserPermission(GuildPermission.MuteMembers)]
     public async Task JoinChannel()
     {
@@ -36,7 +26,7 @@ public class AudioCommands : ModuleBase<SocketCommandContext>
     }
 
     [Command("join")]
-    [Summary("Fa entrare il bot in un canale vocale specifico")]
+    [Summary("Fa entrare il bot in un canale vocale specifico (Solo Admin)")]
     [RequireUserPermission(GuildPermission.Administrator)]
     public async Task JoinChannel([Remainder] string channelName)
     {
@@ -78,7 +68,7 @@ public class AudioCommands : ModuleBase<SocketCommandContext>
                 ConnectedChannels.TryRemove(Context.Guild.Id, out _);
             }
 
-            await _lavaNode.JoinAsync(targetChannel, Context.Channel as ITextChannel);
+            await targetChannel.ConnectAsync();
             ConnectedChannels.TryAdd(Context.Guild.Id, targetChannel);
             await ReplyAsync($"✅ Mi sono unito al canale vocale {targetChannel.Name}!");
         }
@@ -89,7 +79,7 @@ public class AudioCommands : ModuleBase<SocketCommandContext>
     }
 
     [Command("leave")]
-    [Summary("Fa uscire il bot dal canale vocale")]
+    [Summary("Fa uscire il bot dal canale vocale (Solo Moderatori)")]
     [RequireUserPermission(GuildPermission.MuteMembers)]
     public async Task LeaveChannel()
     {
@@ -102,14 +92,7 @@ public class AudioCommands : ModuleBase<SocketCommandContext>
                 return;
             }
 
-            var player = _lavaNode.GetPlayer(Context.Guild);
-            
-            if (player.PlayerState == Victoria.Enums.PlayerState.Playing)
-            {
-                await player.StopAsync();
-            }
-
-            await _lavaNode.LeaveAsync(voiceChannel);
+            await voiceChannel.DisconnectAsync();
             ConnectedChannels.TryRemove(Context.Guild.Id, out _);
             await ReplyAsync("👋 Ho lasciato il canale vocale!");
         }
