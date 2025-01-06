@@ -4,6 +4,7 @@ using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 using System.IO;
+using IA_CEREBRO.Modules;
 
 namespace IA_CEREBRO;
 
@@ -46,6 +47,7 @@ public class Program
             _client!.Log += LogAsync;
             _client!.Ready += ReadyAsync;
             _client!.MessageReceived += HandleCommandAsync;
+            _client!.UserVoiceStateUpdated += AudioCommands.HandleVoiceStateUpdated;
 
             // Registra i moduli dei comandi
             await _commands!.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
@@ -114,10 +116,37 @@ public class Program
         return Task.CompletedTask;
     }
 
-    private Task ReadyAsync()
+    private async Task ReadyAsync()
     {
-        Console.WriteLine($"{_client?.CurrentUser} è online!");
-        return Task.CompletedTask;
+        Console.WriteLine($"⁦{_client.CurrentUser.Username}⁩#{_client.CurrentUser.Discriminator} è online!");
+        await _client.SetGameAsync("!help per i comandi", type: ActivityType.Playing);
+
+        // Se il bot è stato riavviato, invia un messaggio di conferma
+        var startupTime = DateTime.Now;
+        if (File.Exists(Path.Combine(Path.GetTempPath(), "restart_bot.bat")))
+        {
+            await Task.Delay(2000); // Aspetta che il bot sia completamente inizializzato
+            try
+            {
+                var guilds = _client.Guilds;
+                foreach (var guild in guilds)
+                {
+                    var defaultChannel = guild.DefaultChannel;
+                    var currentUser = guild.CurrentUser;
+                    if (defaultChannel != null && 
+                        defaultChannel is ITextChannel textChannel && 
+                        currentUser.GetPermissions(textChannel).SendMessages)
+                    {
+                        await defaultChannel.SendMessageAsync($"✅ Bot riavviato con successo! Sono tornato online alle {startupTime:HH:mm:ss}");
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Errore nell'invio del messaggio di riavvio: {ex.Message}");
+            }
+        }
     }
 
     private async Task HandleCommandAsync(SocketMessage messageParam)
