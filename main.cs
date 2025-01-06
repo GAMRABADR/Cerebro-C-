@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 using System.IO;
 using IA_CEREBRO.Modules;
+using Victoria;
 
 namespace IA_CEREBRO;
 
@@ -14,22 +15,27 @@ public class Program
     private CommandService? _commands;
     private IServiceProvider? _services;
     private readonly KeepAlive _keepAlive;
+    private LavaNode _lavaNode;
 
     public Program()
     {
-        _client = new DiscordSocketClient(new DiscordSocketConfig
+        var config = new DiscordSocketConfig
         {
-            GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent | GatewayIntents.GuildVoiceStates,
-            LogLevel = LogSeverity.Info
-        });
+            GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent | GatewayIntents.GuildMembers
+        };
 
-        _commands = new CommandService(new CommandServiceConfig
-        {
-            LogLevel = LogSeverity.Info,
-            CaseSensitiveCommands = false,
-        });
+        _client = new DiscordSocketClient(config);
+        _commands = new CommandService();
 
-        _services = ConfigureServices();
+        _services = new ServiceCollection()
+            .AddSingleton(_client)
+            .AddSingleton(_commands)
+            .AddLavaNode(x => {
+                x.SelfDeaf = false;
+            })
+            .BuildServiceProvider();
+
+        _lavaNode = _services.GetRequiredService<LavaNode>();
 
         _keepAlive = new KeepAlive();
     }
@@ -45,7 +51,19 @@ public class Program
             _keepAlive.Start();
 
             _client!.Log += LogAsync;
-            _client!.Ready += ReadyAsync;
+            _client!.Ready += async () =>
+            {
+                try
+                {
+                    await _lavaNode.ConnectAsync();
+                    Console.WriteLine("LavaNode connesso con successo!");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Errore durante la connessione di LavaNode: {ex.Message}");
+                }
+                await ReadyAsync();
+            };
             _client!.MessageReceived += HandleCommandAsync;
             _client!.UserVoiceStateUpdated += AudioCommands.HandleVoiceStateUpdated;
 

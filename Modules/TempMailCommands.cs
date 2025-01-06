@@ -2,6 +2,7 @@ using Discord;
 using Discord.Commands;
 using System.Net.Http;
 using System.Text.Json;
+using System.Collections.Concurrent;
 
 namespace IA_CEREBRO.Modules;
 
@@ -10,6 +11,7 @@ public class TempMailCommands : ModuleBase<SocketCommandContext>
     private readonly HttpClient _httpClient;
     private static readonly string[] domains = { "1secmail.com", "1secmail.org", "1secmail.net" };
     private static readonly Random random = new Random();
+    private static readonly ConcurrentDictionary<ulong, string> userEmails = new ConcurrentDictionary<ulong, string>();
 
     public TempMailCommands()
     {
@@ -20,35 +22,46 @@ public class TempMailCommands : ModuleBase<SocketCommandContext>
     [Summary("Genera un indirizzo email temporaneo")]
     public async Task GenerateTempMail()
     {
-        var embed = new EmbedBuilder()
+        var userId = Context.User.Id;
+        
+        if (userEmails.ContainsKey(userId))
+        {
+            await ReplyAsync("❌ Hai già un'email temporanea attiva. Usa `!deletetemp` per eliminarla prima di generarne una nuova.");
+            return;
+        }
+
+        var loadingEmbed = new EmbedBuilder()
             .WithTitle("🔄 Generazione email temporanea in corso...")
             .WithColor(Color.Blue)
             .Build();
 
-        var message = await ReplyAsync(embed: embed);
+        var message = await ReplyAsync(embed: loadingEmbed);
 
         try
         {
-            // Genera un nome utente casuale
             string username = GenerateRandomUsername();
             string domain = domains[random.Next(domains.Length)];
             string email = $"{username}@{domain}";
 
-            var successEmbed = new EmbedBuilder()
-                .WithTitle("📧 Email Temporanea Generata")
-                .WithDescription($"**Email:** `{email}`")
-                .WithColor(Color.Green)
-                .WithFooter(footer => {
-                    footer.Text = "Questa email sarà valida per 24 ore";
-                })
-                .AddField("Come usare", 
-                    "1. Copia l'indirizzo email\n" +
-                    "2. Usalo dove hai bisogno\n" +
-                    "3. Usa `!checkmail " + email + "` per vedere i messaggi ricevuti")
-                .WithCurrentTimestamp()
-                .Build();
+            if (userEmails.TryAdd(userId, email))
+            {
+                var successEmbed = new EmbedBuilder()
+                    .WithTitle("📧 Email Temporanea Generata")
+                    .WithDescription($"**Email:** `{email}`")
+                    .WithColor(Color.Green)
+                    .WithFooter(footer => {
+                        footer.Text = "Questa email sarà valida per 24 ore";
+                    })
+                    .AddField("Come usare", 
+                        "1. Copia l'indirizzo email\n" +
+                        "2. Usalo dove hai bisogno\n" +
+                        "3. Usa `!checkmail` per vedere i messaggi ricevuti\n" +
+                        "4. Usa `!deletetemp` quando hai finito")
+                    .WithCurrentTimestamp()
+                    .Build();
 
-            await message.ModifyAsync(msg => msg.Embed = successEmbed);
+                await message.ModifyAsync(m => { m.Embed = successEmbed; });
+            }
         }
         catch (Exception ex)
         {
@@ -58,26 +71,28 @@ public class TempMailCommands : ModuleBase<SocketCommandContext>
                 .WithColor(Color.Red)
                 .Build();
 
-            await message.ModifyAsync(msg => msg.Embed = errorEmbed);
+            await message.ModifyAsync(m => { m.Embed = errorEmbed; });
         }
     }
 
     [Command("checkmail")]
-    [Summary("Controlla i messaggi ricevuti su un'email temporanea")]
-    public async Task CheckMail([Remainder] string email)
+    [Summary("Controlla i messaggi ricevuti sulla tua email temporanea")]
+    public async Task CheckMail()
     {
-        if (!email.Contains("@") || !domains.Any(d => email.EndsWith(d)))
+        var userId = Context.User.Id;
+        
+        if (!userEmails.TryGetValue(userId, out string email))
         {
-            await ReplyAsync("❌ Email non valida. Usa un'email generata con il comando `!tempmail`");
+            await ReplyAsync("❌ Non hai un'email temporanea attiva. Usa `!tempmail` per generarne una.");
             return;
         }
 
-        var embed = new EmbedBuilder()
+        var loadingEmbed = new EmbedBuilder()
             .WithTitle("🔄 Controllo messaggi in corso...")
             .WithColor(Color.Blue)
             .Build();
 
-        var message = await ReplyAsync(embed: embed);
+        var message = await ReplyAsync(embed: loadingEmbed);
 
         try
         {
@@ -106,7 +121,7 @@ public class TempMailCommands : ModuleBase<SocketCommandContext>
             else
             {
                 successEmbed.WithDescription($"📨 {messages.Count} messaggi ricevuti:");
-                foreach (var msg in messages.Take(10)) // Mostra solo i primi 10 messaggi
+                foreach (var msg in messages.Take(10))
                 {
                     successEmbed.AddField(
                         $"Da: {msg.From}",
@@ -115,7 +130,7 @@ public class TempMailCommands : ModuleBase<SocketCommandContext>
                 }
             }
 
-            await message.ModifyAsync(msg => { msg.Embed = successEmbed.Build(); });
+            await message.ModifyAsync(m => { m.Embed = successEmbed.Build(); });
         }
         catch (Exception ex)
         {
@@ -125,7 +140,30 @@ public class TempMailCommands : ModuleBase<SocketCommandContext>
                 .WithColor(Color.Red)
                 .Build();
 
-            await message.ModifyAsync(msg => msg.Embed = errorEmbed);
+            await message.ModifyAsync(m => { m.Embed = errorEmbed; });
+        }
+    }
+
+    [Command("deletetemp")]
+    [Summary("Elimina la tua email temporanea attiva")]
+    public async Task DeleteTempMail()
+    {
+        var userId = Context.User.Id;
+        
+        if (userEmails.TryRemove(userId, out string email))
+        {
+            var embed = new EmbedBuilder()
+                .WithTitle("🗑️ Email Temporanea Eliminata")
+                .WithDescription($"L'email `{email}` è stata eliminata con successo.")
+                .WithColor(Color.Green)
+                .WithCurrentTimestamp()
+                .Build();
+
+            await ReplyAsync(embed: embed);
+        }
+        else
+        {
+            await ReplyAsync("❌ Non hai un'email temporanea attiva da eliminare.");
         }
     }
 
