@@ -55,14 +55,24 @@ public static class GameNewsHelper
         var tasks = GameSites.Select(site => GetNewsFromSite(site, category));
         var allNewsLists = await Task.WhenAll(tasks);
         
-        // Prendi le prime 5 notizie da ogni sito
-        var combinedNews = allNewsLists
-            .Where(newsList => newsList.Any())
-            .SelectMany(newsList => newsList.Take(5))
-            .OrderByDescending(news => news.Date)
-            .ToList();
+        var combinedNews = new List<GameNews>();
+        
+        // Prendiamo 5 notizie da ogni sito che ha restituito risultati
+        foreach (var siteNews in allNewsLists)
+        {
+            if (siteNews.Any())
+            {
+                var relevantNews = siteNews
+                    .Where(n => string.IsNullOrEmpty(category) || IsRelevantToCategory(n.Title.ToLower() + " " + n.Category.ToLower(), category))
+                    .Take(5);
+                    
+                combinedNews.AddRange(relevantNews);
+            }
+        }
 
-        return combinedNews;
+        return combinedNews
+            .OrderByDescending(n => n.Date)
+            .ToList();
     }
 
     private static async Task<List<GameNews>> GetNewsFromSite(string siteUrl, string category)

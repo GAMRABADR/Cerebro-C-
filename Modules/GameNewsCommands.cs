@@ -18,7 +18,7 @@ public class GameNewsCommands : ModuleBase<SocketCommandContext>
     };
 
     [Command("news")]
-    [Summary("Mostra le ultime 10 notizie sui videogiochi per una categoria specifica")]
+    [Summary("Mostra le ultime notizie sui videogiochi per una categoria specifica")]
     public async Task GetGameNews([Remainder] string category = "")
     {
         // Invia un messaggio iniziale di caricamento
@@ -35,36 +35,68 @@ public class GameNewsCommands : ModuleBase<SocketCommandContext>
             }
 
             var emoji = CategoryEmojis.GetValueOrDefault(category.ToLower(), "🎮");
-            var embed = new EmbedBuilder()
+            
+            // Creiamo più embed per gestire tutte le notizie
+            var embeds = new List<EmbedBuilder>();
+            var currentEmbed = new EmbedBuilder()
                 .WithTitle($"{emoji} Ultime Notizie Gaming {(string.IsNullOrEmpty(category) ? "" : $"- {category.ToUpper()}")}")
                 .WithColor(Color.Blue)
                 .WithFooter(footer => 
                 {
-                    footer.Text = $"Richiesto da {Context.User.Username} • Fonti: IGN, PC Gamer, GameSpot";
+                    footer.Text = $"Richiesto da {Context.User.Username} • Pagina 1";
                 })
                 .WithCurrentTimestamp();
 
             var description = new StringBuilder();
-            for (int i = 0; i < news.Count; i++)
+            var newsCount = 0;
+            var pageCount = 1;
+
+            foreach (var item in news)
             {
-                var item = news[i];
-                description.AppendLine($"**{i + 1}.** [{item.Title}]({item.Url})");
-                description.AppendLine($" **Fonte:** {item.Source} • {item.Date:dd/MM/yyyy}");
+                newsCount++;
+                description.AppendLine($"**{newsCount}.** {item.Title}");
+                description.AppendLine($"🔗 {item.Url}");
+                description.AppendLine($"📰 **Fonte:** {item.Source} • 📅 {item.Date:dd/MM/yyyy}");
                 description.AppendLine();
+
+                // Ogni 10 notizie, creiamo un nuovo embed
+                if (newsCount % 10 == 0 && newsCount < news.Count)
+                {
+                    currentEmbed.WithDescription(description.ToString());
+                    embeds.Add(currentEmbed);
+
+                    pageCount++;
+                    description.Clear();
+                    currentEmbed = new EmbedBuilder()
+                        .WithTitle($"{emoji} Ultime Notizie Gaming {(string.IsNullOrEmpty(category) ? "" : $"- {category.ToUpper()}")}")
+                        .WithColor(Color.Blue)
+                        .WithFooter(footer => 
+                        {
+                            footer.Text = $"Richiesto da {Context.User.Username} • Pagina {pageCount}";
+                        })
+                        .WithCurrentTimestamp();
+                }
             }
 
-            embed.WithDescription(description.ToString());
-
-            await loadingMsg.ModifyAsync(msg => 
+            // Aggiungiamo l'ultimo embed se contiene notizie
+            if (description.Length > 0)
             {
-                msg.Content = null;
-                msg.Embed = embed.Build();
-            });
+                currentEmbed.WithDescription(description.ToString());
+                embeds.Add(currentEmbed);
+            }
+
+            // Inviamo tutti gli embed
+            await loadingMsg.DeleteAsync();
+            foreach (var embed in embeds)
+            {
+                await ReplyAsync(embed: embed.Build());
+                await Task.Delay(1000); // Piccolo delay per evitare il rate limit
+            }
         }
         catch (Exception ex)
         {
             await loadingMsg.ModifyAsync(msg => 
-                msg.Content = " Si è verificato un errore durante il recupero delle notizie. Riprova più tardi.");
+                msg.Content = "❌ Si è verificato un errore durante il recupero delle notizie. Riprova più tardi.");
             Console.WriteLine($"Errore nel comando news: {ex}");
         }
     }
