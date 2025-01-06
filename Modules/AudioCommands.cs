@@ -52,16 +52,18 @@ public class AudioCommands : ModuleBase<SocketCommandContext>
 
     private async Task JoinSpecificChannel(IVoiceChannel targetChannel)
     {
+        const int maxRetries = 3;
+        const int retryDelayMs = 2000;
+        Exception lastException = null;
+
         try
         {
-            // Verifica se il bot è già nel canale
             if (Context.Guild.CurrentUser.VoiceChannel == targetChannel)
             {
                 await ReplyAsync("❌ Sono già in questo canale vocale!");
                 return;
             }
 
-            // Verifica i permessi del bot
             var botPerms = Context.Guild.CurrentUser.GetPermissions(targetChannel);
             if (!botPerms.Connect || !botPerms.Speak)
             {
@@ -69,47 +71,53 @@ public class AudioCommands : ModuleBase<SocketCommandContext>
                 return;
             }
 
-            // Se il bot è in un altro canale, prima disconnettilo
             if (Context.Guild.CurrentUser.VoiceChannel != null)
             {
                 await Context.Guild.CurrentUser.VoiceChannel.DisconnectAsync();
                 ConnectedChannels.TryRemove(Context.Guild.Id, out _);
-                // Piccola pausa per assicurarsi che la disconnessione sia completata
                 await Task.Delay(1000);
             }
 
-            // Tentativo di connessione con timeout più lungo
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            try
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
-                await targetChannel.ConnectAsync(selfDeaf: false, selfMute: false, external: false).WaitAsync(cts.Token);
-                ConnectedChannels.TryAdd(Context.Guild.Id, targetChannel);
-                await ReplyAsync($"✅ Mi sono unito al canale vocale {targetChannel.Name}!");
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                    await targetChannel.ConnectAsync(selfDeaf: false, selfMute: false, external: false).WaitAsync(cts.Token);
+                    ConnectedChannels.TryAdd(Context.Guild.Id, targetChannel);
+                    await ReplyAsync($"✅ Mi sono unito al canale vocale {targetChannel.Name}!");
+                    return;
+                }
+                catch (Exception ex) when (attempt < maxRetries)
+                {
+                    lastException = ex;
+                    string errorType = ex is OperationCanceledException ? "Timeout" : "Errore di connessione";
+                    await ReplyAsync($"⌛ {errorType} - Tentativo {attempt}/{maxRetries}. Riprovo tra {retryDelayMs/1000} secondi...");
+                    await Task.Delay(retryDelayMs);
+                }
             }
-            catch (OperationCanceledException)
-            {
-                await ReplyAsync("❌ Non sono riuscito a unirmi al canale: Tempo scaduto. Riprova tra qualche secondo.");
-                return;
-            }
+
+            // Se arriviamo qui, tutti i tentativi sono falliti
+            string finalError = lastException is OperationCanceledException 
+                ? "timeout di connessione"
+                : lastException is Discord.Net.HttpException httpEx 
+                    ? httpEx.Reason ?? lastException.Message 
+                    : lastException?.Message ?? "errore sconosciuto";
+
+            await ReplyAsync($"❌ Non sono riuscito a unirmi al canale dopo {maxRetries} tentativi: {finalError}");
+            Console.WriteLine($"Errore finale durante il join al canale {targetChannel.Name}: {lastException}");
         }
         catch (Exception ex)
         {
-            var errorMessage = ex.Message;
-            if (ex is Discord.Net.HttpException httpEx)
-            {
-                errorMessage = httpEx.Reason ?? ex.Message;
-            }
-            await ReplyAsync($"❌ Non sono riuscito a unirmi al canale: {errorMessage}");
-            
-            // Log dettagliato dell'errore
-            Console.WriteLine($"Errore durante il join al canale {targetChannel.Name}: {ex}");
+            Console.WriteLine($"Errore critico durante il join al canale {targetChannel.Name}: {ex}");
+            await ReplyAsync("❌ Si è verificato un errore inaspettato durante la connessione al canale.");
         }
     }
 
     [Command("leave")]
     [Summary("Fa uscire il bot dal canale vocale (Solo Moderatori)")]
     [RequireUserPermission(GuildPermission.MuteMembers)]
-    public async Task LeaveChannel()
+    public async Task LeaveChannel([Remainder] string channelName = null)
     {
         try
         {
@@ -120,13 +128,22 @@ public class AudioCommands : ModuleBase<SocketCommandContext>
                 return;
             }
 
+            // Se viene specificato un canale, verifica che sia quello giusto
+            if (!string.IsNullOrEmpty(channelName) && 
+                !voiceChannel.Name.Equals(channelName, StringComparison.OrdinalIgnoreCase))
+            {
+                await ReplyAsync($"❌ Non sono nel canale {channelName}!");
+                return;
+            }
+
             await voiceChannel.DisconnectAsync();
             ConnectedChannels.TryRemove(Context.Guild.Id, out _);
-            await ReplyAsync("👋 Ho lasciato il canale vocale!");
+            await ReplyAsync($"👋 Ho lasciato il canale {voiceChannel.Name}!");
         }
         catch (Exception ex)
         {
-            await ReplyAsync($"❌ Si è verificato un errore: {ex.Message}");
+            Console.WriteLine($"Errore durante l'uscita dal canale: {ex}");
+            await ReplyAsync("❌ Si è verificato un errore durante l'uscita dal canale.");
         }
     }
 
