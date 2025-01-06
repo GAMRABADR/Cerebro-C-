@@ -55,6 +55,7 @@ public class AudioCommands : ModuleBase<SocketCommandContext>
         const int maxRetries = 3;
         const int retryDelayMs = 2000;
         Exception lastException = null;
+        bool showRetryMessages = false;  // Per default, non mostriamo i messaggi di retry
 
         try
         {
@@ -71,41 +72,56 @@ public class AudioCommands : ModuleBase<SocketCommandContext>
                 return;
             }
 
+            // Se il bot è in un altro canale, prima disconnettilo
             if (Context.Guild.CurrentUser.VoiceChannel != null)
             {
                 await Context.Guild.CurrentUser.VoiceChannel.DisconnectAsync();
                 ConnectedChannels.TryRemove(Context.Guild.Id, out _);
-                await Task.Delay(1000);
+                await Task.Delay(500); // Ridotto il delay per la disconnessione
             }
 
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
                 {
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)); // Ridotto il timeout
                     await targetChannel.ConnectAsync(selfDeaf: false, selfMute: false, external: false).WaitAsync(cts.Token);
                     ConnectedChannels.TryAdd(Context.Guild.Id, targetChannel);
                     await ReplyAsync($"✅ Mi sono unito al canale vocale {targetChannel.Name}!");
                     return;
                 }
-                catch (Exception ex) when (attempt < maxRetries)
+                catch (Exception ex)
                 {
                     lastException = ex;
-                    string errorType = ex is OperationCanceledException ? "Timeout" : "Errore di connessione";
-                    await ReplyAsync($"⌛ {errorType} - Tentativo {attempt}/{maxRetries}. Riprovo tra {retryDelayMs/1000} secondi...");
-                    await Task.Delay(retryDelayMs);
+                    
+                    // Se è l'ultimo tentativo, non mostrare il messaggio di retry
+                    if (attempt < maxRetries)
+                    {
+                        await Task.Delay(retryDelayMs);
+                    }
+                    
+                    // Log dell'errore in console per debugging
+                    Console.WriteLine($"Tentativo {attempt} fallito per il canale {targetChannel.Name}: {ex.Message}");
                 }
             }
 
             // Se arriviamo qui, tutti i tentativi sono falliti
-            string finalError = lastException is OperationCanceledException 
-                ? "timeout di connessione"
-                : lastException is Discord.Net.HttpException httpEx 
-                    ? httpEx.Reason ?? lastException.Message 
-                    : lastException?.Message ?? "errore sconosciuto";
+            string errorMessage = "Non riesco a connettermi al canale vocale. ";
+            if (lastException is OperationCanceledException)
+            {
+                errorMessage += "La connessione è troppo lenta o instabile.";
+            }
+            else if (lastException is Discord.Net.HttpException httpEx)
+            {
+                errorMessage += httpEx.Reason ?? "Si è verificato un errore di comunicazione con Discord.";
+            }
+            else
+            {
+                errorMessage += "Si è verificato un problema di connessione.";
+            }
 
-            await ReplyAsync($"❌ Non sono riuscito a unirmi al canale dopo {maxRetries} tentativi: {finalError}");
-            Console.WriteLine($"Errore finale durante il join al canale {targetChannel.Name}: {lastException}");
+            await ReplyAsync($"❌ {errorMessage} Riprova più tardi.");
+            Console.WriteLine($"Errore finale dopo {maxRetries} tentativi per il canale {targetChannel.Name}: {lastException}");
         }
         catch (Exception ex)
         {
