@@ -2,74 +2,16 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using System.Diagnostics;
-using System.IO;
 
 namespace IA_CEREBRO.Modules;
 
 public class SystemCommands : ModuleBase<SocketCommandContext>
 {
     private readonly DiscordSocketClient _client;
-    private static IMessageChannel? _lastChannel;
 
     public SystemCommands(DiscordSocketClient client)
     {
         _client = client;
-    }
-
-    [Command("restart")]
-    [RequireUserPermission(GuildPermission.Administrator)]
-    [Summary("Riavvia il bot")]
-    public async Task RestartBot()
-    {
-        _lastChannel = Context.Channel;
-        var message = await ReplyAsync("🔄 Avvio sequenza di riavvio...\nIl bot sarà di nuovo online tra 30 secondi.");
-        
-        // Aspetta un momento per assicurarsi che il messaggio venga inviato
-        await Task.Delay(1000);
-
-        try
-        {
-            // Disconnetti il client Discord
-            await _client.StopAsync();
-            await _client.LogoutAsync();
-
-            // Ottieni il percorso dell'eseguibile corrente
-            string currentDir = AppDomain.CurrentDomain.BaseDirectory;
-            string projectDir = Path.GetFullPath(Path.Combine(currentDir, "../../.."));
-
-            // Crea un processo batch che:
-            // 1. Killa tutti i processi dotnet
-            // 2. Mostra un countdown
-            // 3. Riavvia il bot
-            string batchContent = @$"
-@echo off
-taskkill /F /IM dotnet.exe
-echo Riavvio in corso...
-for /l %%i in (30,-1,1) do (
-    cls
-    echo Riavvio in corso... %%i secondi rimanenti
-    timeout /t 1 /nobreak >nul
-)
-cd ""{projectDir}""
-start /B dotnet run
-exit
-";
-            string batchPath = Path.Combine(Path.GetTempPath(), "restart_bot.bat");
-            File.WriteAllText(batchPath, batchContent);
-
-            // Esegui il batch file
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = "cmd.exe",
-                Arguments = $"/c {batchPath}",
-                UseShellExecute = true,
-                CreateNoWindow = false
-            });
-        }
-        catch (Exception ex)
-        {
-            await ReplyAsync($"❌ Errore durante il riavvio: {ex.Message}");
-        }
     }
 
     [Command("shutdown")]
