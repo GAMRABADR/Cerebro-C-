@@ -1,5 +1,6 @@
 using HtmlAgilityPack;
 using System.Text.RegularExpressions;
+using System.Web;
 
 namespace IA_CEREBRO.Helpers;
 
@@ -14,7 +15,6 @@ public class GameNews
 
 public static class GameNewsHelper
 {
-    private static readonly HttpClient client = new HttpClient();
     private static readonly Dictionary<string, string[]> CategoryKeywords = new()
     {
         { "pvp", new[] { "pvp", "multiplayer", "competitive", "esports", "battle royale", "versus", "competition", "arena", "team-based" } },
@@ -25,57 +25,170 @@ public static class GameNewsHelper
         { "survivor", new[] { "survival", "survivor", "crafting", "sandbox", "open world survival", "survival horror", "survival craft", "survival game", "base building" } }
     };
 
-    private static readonly string[] GameSites = new[]
+    private static readonly string[] PCKeywords = new[]
     {
-        "https://www.pcgamer.com/news",
-        "https://www.ign.com/pc",
-        "https://www.gamespot.com/pc",
-        "https://www.rockpapershotgun.com",
-        "https://www.eurogamer.net",
-        "https://www.pcgamesn.com",
-        "https://www.gamespace.com",
-        "https://www.spaziogames.it/pc"
+        "pc", "steam", "epic games", "gaming pc", "desktop", "windows",
+        "rtx", "nvidia", "amd", "intel", "gpu", "cpu", "hardware",
+        "directx", "vulkan", "dx12", "pc gaming", "pc release", "pc version",
+        "pc port", "pc exclusive", "pc requirements", "system requirements"
     };
 
-    // Dizionario che mappa i siti ai loro colori
+    private static readonly string[] GameSites = new[]
+    {
+        "https://www.pcgamesn.com/",
+        "https://www.dsogaming.com/",
+        "https://www.rockpapershotgun.com/news/",
+        "https://www.eurogamer.net/pc",
+        "https://www.gamespot.com/pc/",
+        "https://www.vg247.com/pc-gaming",
+        "https://www.thegamer.com/pc/",
+        "https://www.pcworld.com/category/gaming/"
+    };
+
     private static readonly Dictionary<string, string> SiteColors = new()
     {
-        { "pcgamer.com", "[#FF6B6B]" },      // Rosso
-        { "ign.com", "[#4ECDC4]" },          // Turchese
-        { "gamespot.com", "[#FFD93D]" },     // Giallo
-        { "rockpapershotgun.com", "[#95E1D3]" }, // Verde acqua
-        { "eurogamer.net", "[#A8E6CF]" },    // Verde chiaro
-        { "pcgamesn.com", "[#FF8B94]" },     // Rosa
-        { "gamespace.com", "[#DCD6F7]" },    // Lavanda
-        { "spaziogames.it", "[#F7D794]" }    // Arancione chiaro
+        { "pcgamesn.com", "[#9370DB]" },       // Viola medio
+        { "dsogaming.com", "[#FF4500]" },      // Arancione
+        { "rockpapershotgun.com", "[#32CD32]" }, // Verde lime
+        { "eurogamer.net", "[#4169E1]" },      // Blu reale
+        { "gamespot.com", "[#FFD700]" },       // Oro
+        { "vg247.com", "[#FF69B4]" },          // Rosa caldo
+        { "thegamer.com", "[#20B2AA]" },       // Verde acqua
+        { "pcworld.com", "[#8B4513]" }         // Marrone
     };
 
     public static async Task<List<GameNews>> GetGameNews(string category)
     {
         var allNews = new List<GameNews>();
+        var client = new HttpClient();
+        client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
         
         foreach (var site in GameSites)
         {
             try 
             {
-                Console.WriteLine($"Caricamento notizie da: {site}");
-                var siteNews = await GetNewsFromSite(site, category);
-                Console.WriteLine($"Trovate {siteNews.Count} notizie da {site}");
-                
-                if (siteNews.Any())
+                var web = new HtmlWeb();
+                web.PreRequest = request => 
                 {
+                    request.AutomaticDecompression = System.Net.DecompressionMethods.All;
+                    request.Headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
+                    return true;
+                };
+
+                var siteName = new Uri(site).Host.Replace("www.", "");
+                Console.WriteLine($"\n[DEBUG] Tentativo di caricamento da {siteName}");
+
+                var doc = await web.LoadFromWebAsync(site);
+                var siteColor = SiteColors.GetValueOrDefault(siteName, "[#FFFFFF]");
+
+                var articleNodes = siteName switch
+                {
+                    "pcgamesn.com" => doc.DocumentNode.SelectNodes("//article | //div[contains(@class, 'article-card')]"),
+                    "dsogaming.com" => doc.DocumentNode.SelectNodes("//article | //div[contains(@class, 'jeg_posts')]//article"),
+                    "rockpapershotgun.com" => doc.DocumentNode.SelectNodes("//article[contains(@class, 'summary')] | //div[contains(@class, 'article')]"),
+                    "eurogamer.net" => doc.DocumentNode.SelectNodes("//article | //div[contains(@class, 'article')]"),
+                    "gamespot.com" => doc.DocumentNode.SelectNodes("//article | //div[contains(@class, 'card-item')]"),
+                    "vg247.com" => doc.DocumentNode.SelectNodes("//article | //div[contains(@class, 'article-card')]"),
+                    "thegamer.com" => doc.DocumentNode.SelectNodes("//article | //div[contains(@class, 'display-card')]"),
+                    "pcworld.com" => doc.DocumentNode.SelectNodes("//article | //div[contains(@class, 'article-card')]"),
+                    _ => doc.DocumentNode.SelectNodes("//article | //div[contains(@class, 'article')]")
+                };
+
+                Console.WriteLine($"[DEBUG] {siteName}: Trovati {articleNodes?.Count ?? 0} articoli");
+
+                if (articleNodes != null)
+                {
+                    var siteNews = new List<GameNews>();
+                    foreach (var node in articleNodes)
+                    {
+                        try
+                        {
+                            var titleNode = siteName switch
+                            {
+                                "pcgamesn.com" => node.SelectSingleNode(".//h3 | .//h2"),
+                                "dsogaming.com" => node.SelectSingleNode(".//h2 | .//h3[contains(@class, 'jeg_post_title')]"),
+                                "rockpapershotgun.com" => node.SelectSingleNode(".//h2 | .//h3"),
+                                "eurogamer.net" => node.SelectSingleNode(".//h2 | .//h1"),
+                                "gamespot.com" => node.SelectSingleNode(".//h3 | .//h2"),
+                                "vg247.com" => node.SelectSingleNode(".//h3 | .//h2"),
+                                "thegamer.com" => node.SelectSingleNode(".//h3 | .//h2"),
+                                "pcworld.com" => node.SelectSingleNode(".//h3 | .//h2"),
+                                _ => node.SelectSingleNode(".//h2 | .//h3 | .//h1")
+                            };
+
+                            var linkNode = siteName switch
+                            {
+                                "pcgamesn.com" => node.SelectSingleNode(".//h3/a | .//h2/a"),
+                                "dsogaming.com" => node.SelectSingleNode(".//h2/a | .//h3/a"),
+                                "rockpapershotgun.com" => node.SelectSingleNode(".//h2/a | .//h3/a"),
+                                "eurogamer.net" => node.SelectSingleNode(".//h2/a | .//h1/a"),
+                                "gamespot.com" => node.SelectSingleNode(".//h3/a | .//h2/a"),
+                                "vg247.com" => node.SelectSingleNode(".//h3/a | .//h2/a"),
+                                "thegamer.com" => node.SelectSingleNode(".//h3/a | .//h2/a"),
+                                "pcworld.com" => node.SelectSingleNode(".//h3/a | .//h2/a"),
+                                _ => node.SelectSingleNode(".//h2/a | .//h3/a | .//h1/a")
+                            } ?? titleNode;
+
+                            if (titleNode != null && linkNode != null)
+                            {
+                                var title = WebUtility.HtmlDecode(titleNode.InnerText.Trim());
+                                var url = linkNode.GetAttributeValue("href", "");
+                                
+                                if (!url.StartsWith("http"))
+                                {
+                                    if (url.StartsWith("//"))
+                                    {
+                                        url = $"https:{url}";
+                                    }
+                                    else
+                                    {
+                                        url = $"https://{siteName}{(url.StartsWith("/") ? "" : "/")}{url}";
+                                    }
+                                }
+
+                                title = $"{siteColor}{title}[/]";
+
+                                var gameNews = new GameNews
+                                {
+                                    Title = title,
+                                    Url = url,
+                                    Source = siteName,
+                                    Date = DateTime.Now,
+                                    Category = ExtractCategory(title)
+                                };
+
+                                if (IsPCRelated(title))
+                                {
+                                    siteNews.Add(gameNews);
+                                    Console.WriteLine($"[DEBUG] {siteName}: Aggiunta notizia PC '{title}'");
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[ERROR] Errore nel parsing di un articolo da {siteName}: {ex.Message}");
+                            continue;
+                        }
+                    }
+
                     var relevantNews = siteNews
-                        .Where(n => string.IsNullOrEmpty(category) || IsRelevantToCategory(n.Title.ToLower() + " " + n.Category.ToLower(), category))
-                        .Take(5)
+                        .Where(n => string.IsNullOrEmpty(category) || 
+                               IsRelevantToCategory(n.Title.ToLower(), category))
+                        .Take(10)
                         .ToList();
-                        
-                    Console.WriteLine($"Aggiunte {relevantNews.Count} notizie rilevanti da {site}");
+
+                    Console.WriteLine($"[DEBUG] {siteName}: Aggiunte {relevantNews.Count} notizie");
                     allNews.AddRange(relevantNews);
+                }
+                else
+                {
+                    Console.WriteLine($"[WARNING] {siteName}: Nessun articolo trovato");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Errore nel caricamento delle notizie da {site}: {ex.Message}");
+                Console.WriteLine($"[ERROR] Errore nel caricamento delle notizie da {site}: {ex.Message}");
+                continue;
             }
         }
 
@@ -83,122 +196,29 @@ public static class GameNewsHelper
             .OrderByDescending(n => n.Date)
             .ToList();
             
-        Console.WriteLine($"Totale notizie ordinate: {orderedNews.Count}");
+        Console.WriteLine($"\n[DEBUG] Totale notizie PC ordinate: {orderedNews.Count}");
+        foreach (var news in orderedNews)
+        {
+            Console.WriteLine($"[DEBUG] - {news.Source}: {news.Title}");
+        }
+
         return orderedNews;
     }
 
-    private static async Task<List<GameNews>> GetNewsFromSite(string siteUrl, string category)
+    private static bool IsPCRelated(string text)
     {
-        try
-        {
-            var news = new List<GameNews>();
-            var web = new HtmlWeb();
-            var doc = await web.LoadFromWebAsync(siteUrl);
-            Console.WriteLine($"Pagina caricata da {siteUrl}");
+        text = text.ToLower();
+        return PCKeywords.Any(keyword => text.Contains(keyword.ToLower())) ||
+               !text.Contains("xbox") && !text.Contains("playstation") && 
+               !text.Contains("ps5") && !text.Contains("ps4") && 
+               !text.Contains("switch") && !text.Contains("nintendo") &&
+               !text.Contains("mobile") && !text.Contains("android") && 
+               !text.Contains("ios");
+    }
 
-            var siteName = new Uri(siteUrl).Host.Replace("www.", "");
-            var siteColor = SiteColors.GetValueOrDefault(siteName, "[#FFFFFF]");
-
-            // Selettori personalizzati per ogni sito
-            var articleNodes = siteName switch
-            {
-                "pcgamer.com" => doc.DocumentNode.SelectNodes("//div[contains(@class, 'listingResult')]"),
-                "ign.com" => doc.DocumentNode.SelectNodes("//div[contains(@class, 'article-item')]"),
-                "gamespot.com" => doc.DocumentNode.SelectNodes("//article[contains(@class, 'card-item')]"),
-                "rockpapershotgun.com" => doc.DocumentNode.SelectNodes("//article[contains(@class, 'summary')]"),
-                "eurogamer.net" => doc.DocumentNode.SelectNodes("//div[contains(@class, 'article')]"),
-                "pcgamesn.com" => doc.DocumentNode.SelectNodes("//article[contains(@class, 'article')]"),
-                "gamespace.com" => doc.DocumentNode.SelectNodes("//article[contains(@class, 'post')]"),
-                "spaziogames.it" => doc.DocumentNode.SelectNodes("//article[contains(@class, 'article-preview')]") ??
-                                   doc.DocumentNode.SelectNodes("//div[contains(@class, 'article-preview')]"),
-                _ => doc.DocumentNode.SelectNodes("//article") ?? 
-                     doc.DocumentNode.SelectNodes("//div[contains(@class, 'article')]") ??
-                     doc.DocumentNode.SelectNodes("//div[contains(@class, 'news-item')]") ??
-                     doc.DocumentNode.SelectNodes("//div[contains(@class, 'post')]")
-            };
-
-            Console.WriteLine($"Trovati {articleNodes?.Count ?? 0} articoli da {siteUrl}");
-
-            if (articleNodes != null)
-            {
-                foreach (var node in articleNodes)
-                {
-                    try
-                    {
-                        var titleNode = siteName switch
-                        {
-                            "pcgamer.com" => node.SelectSingleNode(".//h3[@class='article-name']"),
-                            "ign.com" => node.SelectSingleNode(".//h3"),
-                            "gamespot.com" => node.SelectSingleNode(".//h4"),
-                            "rockpapershotgun.com" => node.SelectSingleNode(".//h2"),
-                            "eurogamer.net" => node.SelectSingleNode(".//h2"),
-                            "pcgamesn.com" => node.SelectSingleNode(".//h2"),
-                            "gamespace.com" => node.SelectSingleNode(".//h2"),
-                            "spaziogames.it" => node.SelectSingleNode(".//h2[contains(@class, 'article-preview__title')]") ??
-                                               node.SelectSingleNode(".//h3[contains(@class, 'article-preview__title')]"),
-                            _ => node.SelectSingleNode(".//h3") ?? 
-                                 node.SelectSingleNode(".//h2") ??
-                                 node.SelectSingleNode(".//a[contains(@class, 'title')]")
-                        };
-
-                        var linkNode = siteName switch
-                        {
-                            "pcgamer.com" => node.SelectSingleNode(".//a[@class='article-link']"),
-                            "ign.com" => node.SelectSingleNode(".//a[contains(@class, 'article-link')]"),
-                            "gamespot.com" => node.SelectSingleNode(".//a"),
-                            _ => node.SelectSingleNode(".//a[contains(@href, '/')]")
-                        };
-
-                        var dateNode = siteName switch
-                        {
-                            "pcgamer.com" => node.SelectSingleNode(".//time"),
-                            "ign.com" => node.SelectSingleNode(".//time"),
-                            "gamespot.com" => node.SelectSingleNode(".//time"),
-                            _ => node.SelectSingleNode(".//time") ?? 
-                                 node.SelectSingleNode(".//*[contains(@class, 'date')]") ??
-                                 node.SelectSingleNode(".//*[contains(@class, 'article-preview__date')]")
-                        };
-
-                        if (titleNode != null && linkNode != null)
-                        {
-                            var title = titleNode.InnerText.Trim();
-                            var url = linkNode.GetAttributeValue("href", "");
-                            if (!url.StartsWith("http"))
-                            {
-                                url = $"https://{siteName}{(url.StartsWith("/") ? "" : "/")}{url}";
-                            }
-
-                            var date = dateNode != null ? ParseDate(dateNode.GetAttributeValue("datetime", dateNode.InnerText)) : DateTime.Now;
-
-                            var categoryTags = node.SelectNodes(".//*[contains(@class, 'tag') or contains(@class, 'category') or contains(@class, 'article-preview__category')]");
-                            var articleCategories = categoryTags != null 
-                                ? string.Join(" ", categoryTags.Select(t => t.InnerText.Trim()))
-                                : "";
-
-                            news.Add(new GameNews
-                            {
-                                Title = $"{siteColor}{title}[/]",
-                                Url = url,
-                                Source = siteName,
-                                Date = date,
-                                Category = articleCategories
-                            });
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Errore nel parsing di un articolo da {siteUrl}: {ex.Message}");
-                        continue;
-                    }
-                }
-            }
-            return news;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Errore nel recupero delle news da {siteUrl}: {ex.Message}");
-            return new List<GameNews>();
-        }
+    private static string ExtractCategory(string title)
+    {
+        return "";
     }
 
     private static bool IsRelevantToCategory(string content, string category)
@@ -210,42 +230,5 @@ public static class GameNewsHelper
 
         var keywords = CategoryKeywords[category];
         return keywords.Any(k => content.Contains(k.ToLower()));
-    }
-
-    private static DateTime ParseDate(string dateStr)
-    {
-        try
-        {
-            // Rimuovi eventuali testi aggiuntivi come "ago", "published", ecc.
-            dateStr = Regex.Replace(dateStr, @"\b(ago|published|posted|on)\b", "", RegexOptions.IgnoreCase).Trim();
-            
-            // Prova diversi formati di data comuni
-            if (DateTime.TryParse(dateStr, out DateTime result))
-                return result;
-
-            // Gestisci formati relativi come "2 hours ago", "3 days ago", ecc.
-            var relativeMatch = Regex.Match(dateStr, @"(\d+)\s*(hour|day|week|month|year)s?\s*");
-            if (relativeMatch.Success)
-            {
-                var amount = int.Parse(relativeMatch.Groups[1].Value);
-                var unit = relativeMatch.Groups[2].Value.ToLower();
-                
-                return unit switch
-                {
-                    "hour" => DateTime.Now.AddHours(-amount),
-                    "day" => DateTime.Now.AddDays(-amount),
-                    "week" => DateTime.Now.AddDays(-amount * 7),
-                    "month" => DateTime.Now.AddMonths(-amount),
-                    "year" => DateTime.Now.AddYears(-amount),
-                    _ => DateTime.Now
-                };
-            }
-
-            return DateTime.Now;
-        }
-        catch
-        {
-            return DateTime.Now;
-        }
     }
 }

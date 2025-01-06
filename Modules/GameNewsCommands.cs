@@ -2,6 +2,7 @@ using Discord;
 using Discord.Commands;
 using IA_CEREBRO.Helpers;
 using System.Text;
+using System.Linq;
 
 namespace IA_CEREBRO.Modules;
 
@@ -36,61 +37,42 @@ public class GameNewsCommands : ModuleBase<SocketCommandContext>
 
             var emoji = CategoryEmojis.GetValueOrDefault(category.ToLower(), "🎮");
             
-            // Creiamo più embed per gestire tutte le notizie
-            var embeds = new List<EmbedBuilder>();
-            var currentEmbed = new EmbedBuilder()
-                .WithTitle($"{emoji} Ultime Notizie Gaming {(string.IsNullOrEmpty(category) ? "" : $"- {category.ToUpper()}")}")
-                .WithColor(Color.Blue)
-                .WithFooter(footer => 
-                {
-                    footer.Text = $"Richiesto da {Context.User.Username} • Pagina 1";
-                })
-                .WithCurrentTimestamp();
-
-            var description = new StringBuilder();
-            var newsCount = 0;
-            var pageCount = 1;
-
-            foreach (var item in news)
-            {
-                newsCount++;
-                description.AppendLine($"**{newsCount}.** {item.Title}");
-                description.AppendLine($"🔗 {item.Url}");
-                description.AppendLine($"📰 **Fonte:** {item.Source} • 📅 {item.Date:dd/MM/yyyy}");
-                description.AppendLine();
-
-                // Ogni 10 notizie, creiamo un nuovo embed
-                if (newsCount % 10 == 0 && newsCount < news.Count)
-                {
-                    currentEmbed.WithDescription(description.ToString());
-                    embeds.Add(currentEmbed);
-
-                    pageCount++;
-                    description.Clear();
-                    currentEmbed = new EmbedBuilder()
-                        .WithTitle($"{emoji} Ultime Notizie Gaming {(string.IsNullOrEmpty(category) ? "" : $"- {category.ToUpper()}")}")
-                        .WithColor(Color.Blue)
-                        .WithFooter(footer => 
-                        {
-                            footer.Text = $"Richiesto da {Context.User.Username} • Pagina {pageCount}";
-                        })
-                        .WithCurrentTimestamp();
-                }
-            }
-
-            // Aggiungiamo l'ultimo embed se contiene notizie
-            if (description.Length > 0)
-            {
-                currentEmbed.WithDescription(description.ToString());
-                embeds.Add(currentEmbed);
-            }
-
-            // Inviamo tutti gli embed
+            // Raggruppiamo le notizie per sito
+            var newsBySite = news.GroupBy(n => n.Source);
+            
+            // Eliminiamo il messaggio di caricamento
             await loadingMsg.DeleteAsync();
-            foreach (var embed in embeds)
+
+            // Inviamo un messaggio per ogni sito
+            foreach (var siteGroup in newsBySite)
             {
+                var siteName = siteGroup.Key;
+                var siteNews = siteGroup.Take(10).ToList();
+                
+                var embed = new EmbedBuilder()
+                    .WithTitle($"{emoji} Notizie da {siteName} {(string.IsNullOrEmpty(category) ? "" : $"- {category.ToUpper()}")}")
+                    .WithColor(Color.Blue)
+                    .WithFooter(footer => 
+                    {
+                        footer.Text = $"Richiesto da {Context.User.Username} • {siteName}";
+                    })
+                    .WithCurrentTimestamp();
+
+                var description = new StringBuilder();
+                var newsCount = 1;
+
+                foreach (var item in siteNews)
+                {
+                    description.AppendLine($"**{newsCount}.** {item.Title}");
+                    description.AppendLine($"🔗 {item.Url}");
+                    description.AppendLine($"📰 **Fonte:** {item.Source} • 📅 {item.Date:dd/MM/yyyy HH:mm}");
+                    description.AppendLine();
+                    newsCount++;
+                }
+
+                embed.WithDescription(description.ToString());
                 await ReplyAsync(embed: embed.Build());
-                await Task.Delay(1000); // Piccolo delay per evitare il rate limit
+                await Task.Delay(800); // Piccolo delay tra i messaggi
             }
         }
         catch (Exception ex)
