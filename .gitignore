@@ -1,0 +1,35 @@
+# File di configurazione e segreti
+.env
+chiave.txt
+*.user
+*.suo
+
+# Directory di build
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+
+# File temporanei di Visual Studio
+.vs/
+*.userprefs
+*.usertasks
+*.vscode
+*.idea
+*.swp
+*.*~
+project.lock.json
+.project
+.DS_Store
+
+# File di pacchetti NuGet
+*.nupkg
+# Directory dei pacchetti NuGet
+packages/
+
+# File di log
+*.log
+
+# File specifici di Replit che non devono essere tracciati
+.replit
+replit.nix
