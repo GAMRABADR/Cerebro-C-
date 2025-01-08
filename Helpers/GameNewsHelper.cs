@@ -6,11 +6,11 @@ namespace IA_CEREBRO.Helpers;
 
 public class GameNews
 {
-    public string Title { get; set; }
-    public string Url { get; set; }
-    public string Source { get; set; }
+    public string? Title { get; set; }
+    public string? Url { get; set; }
+    public string? Source { get; set; }
     public DateTime Date { get; set; }
-    public string Category { get; set; }
+    public string? Category { get; set; }
 }
 
 public static class GameNewsHelper
@@ -131,7 +131,7 @@ public static class GameNewsHelper
 
                             if (titleNode != null && linkNode != null)
                             {
-                                var title = WebUtility.HtmlDecode(titleNode.InnerText.Trim());
+                                var title = HttpUtility.HtmlDecode(titleNode.InnerText.Trim());
                                 var url = linkNode.GetAttributeValue("href", "");
                                 
                                 if (!url.StartsWith("http"))
@@ -173,7 +173,7 @@ public static class GameNewsHelper
 
                     var relevantNews = siteNews
                         .Where(n => string.IsNullOrEmpty(category) || 
-                               IsRelevantToCategory(n.Title.ToLower(), category))
+                               (n.Title != null && IsRelevantToCategory(n.Title.ToLower(), category)))
                         .Take(10)
                         .ToList();
 

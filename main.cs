@@ -4,6 +4,7 @@ using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 using System.IO;
+using System.Net;
 
 namespace IA_CEREBRO;
 
@@ -13,12 +14,17 @@ public class Program
     private CommandService? _commands;
     private IServiceProvider? _services;
     private readonly KeepAlive _keepAlive;
+    private HttpListener? _httpListener;
 
     public Program()
     {
         var config = new DiscordSocketConfig
         {
-            GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent | GatewayIntents.GuildMembers | GatewayIntents.GuildVoiceStates
+            GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent | GatewayIntents.GuildMembers | GatewayIntents.GuildVoiceStates,
+            AlwaysDownloadUsers = true,
+            ConnectionTimeout = 30000,
+            HandlerTimeout = 30000,
+            DefaultRetryMode = RetryMode.RetryTimeouts | RetryMode.RetryRatelimit
         };
 
         _client = new DiscordSocketClient(config);
@@ -27,6 +33,7 @@ public class Program
         _services = new ServiceCollection()
             .AddSingleton(_client)
             .AddSingleton(_commands)
+            .AddSingleton<VoiceConnectionHandler>()
             .BuildServiceProvider();
 
         _keepAlive = new KeepAlive();
@@ -59,6 +66,9 @@ public class Program
             Console.WriteLine("Login successful, starting client...");
             await _client!.StartAsync();
             Console.WriteLine("Client started successfully!");
+
+            // Avvia il server HTTP per UptimeRobot
+            await StartHttpServer();
 
             await Task.Delay(Timeout.Infinite);
         }
@@ -110,6 +120,36 @@ public class Program
         }
     }
 
+    private async Task StartHttpServer()
+    {
+        _httpListener = new HttpListener();
+        _httpListener.Prefixes.Add("http://+:8080/");
+        
+        try
+        {
+            _httpListener.Start();
+            Console.WriteLine("Server HTTP avviato sulla porta 8080");
+
+            while (true)
+            {
+                var context = await _httpListener.GetContextAsync();
+                var response = context.Response;
+
+                string responseString = "Bot is running!";
+                byte[] buffer = System.Text.Encoding.UTF8.GetBytes(responseString);
+
+                response.ContentLength64 = buffer.Length;
+                var output = response.OutputStream;
+                await output.WriteAsync(buffer, 0, buffer.Length);
+                output.Close();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore nel server HTTP: {ex.Message}");
+        }
+    }
+
     private Task LogAsync(LogMessage log)
     {
         Console.WriteLine(log.ToString());
@@ -118,14 +158,19 @@ public class Program
 
     private async Task ReadyAsync()
     {
-        await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
-        Console.WriteLine($"Bot connesso come {_client.CurrentUser.Username}");
+        var currentUser = _client?.CurrentUser;
+        if (currentUser != null)
+        {
+            await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
+            Console.WriteLine($"Bot connesso come {currentUser.Username}");
+        }
     }
 
     private async Task HandleCommandAsync(SocketMessage messageParam)
     {
         if (messageParam is not SocketUserMessage message) return;
-        if (message.Author.Id == _client?.CurrentUser.Id) return;
+        if (_client?.CurrentUser == null) return;
+        if (message.Author.Id == _client.CurrentUser.Id) return;
 
         int argPos = 0;
         if (!message.HasCharPrefix('!', ref argPos)) return;

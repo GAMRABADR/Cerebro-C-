@@ -37,7 +37,14 @@ public class ServerManagementCommands : ModuleBase<SocketCommandContext>
             return;
         }
 
-        await (Context.Channel as ITextChannel).ModifyAsync(x => x.SlowModeInterval = seconds);
+        var textChannel = Context.Channel as ITextChannel;
+        if (textChannel == null)
+        {
+            await ReplyAsync("❌ Questo comando può essere usato solo in canali di testo!");
+            return;
+        }
+
+        await textChannel.ModifyAsync(x => x.SlowModeInterval = seconds);
         
         if (seconds == 0)
             await ReplyAsync("✅ Modalità lenta disattivata!");
@@ -72,9 +79,14 @@ public class ServerManagementCommands : ModuleBase<SocketCommandContext>
     [Command("userinfo")]
     [Summary("Mostra informazioni su un utente (Solo Moderatori)")]
     [RequireUserPermission(GuildPermission.MuteMembers)]
-    public async Task UserInfo(SocketGuildUser user = null)
+    public async Task UserInfo(SocketGuildUser? user = null)
     {
         user ??= Context.User as SocketGuildUser;
+        if (user == null) 
+        {
+            await ReplyAsync("❌ Utente non trovato!");
+            return;
+        }
         
         var roles = user.Roles.Where(r => !r.IsEveryone).OrderByDescending(r => r.Position);
         var joinPosition = Context.Guild.Users.OrderBy(u => u.JoinedAt).ToList().IndexOf(user) + 1;

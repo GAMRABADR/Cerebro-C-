@@ -20,6 +20,12 @@ public class HelpCommand : ModuleBase<SocketCommandContext>
     public async Task Help()
     {
         var user = Context.User as SocketGuildUser;
+        if (user == null)
+        {
+            await ReplyAsync("❌ Comando disponibile solo nei server!");
+            return;
+        }
+
         var isAdmin = user.GuildPermissions.Administrator;
         var isModerator = user.Roles.Any(r => r.Name.ToLower() == "moderator");
         var isStaff = isAdmin || isModerator;
@@ -89,6 +95,12 @@ public class HelpCommand : ModuleBase<SocketCommandContext>
     public async Task Help(string commandName)
     {
         var user = Context.User as SocketGuildUser;
+        if (user == null)
+        {
+            await ReplyAsync("❌ Comando disponibile solo nei server!");
+            return;
+        }
+
         var isAdmin = user.GuildPermissions.Administrator;
         var isModerator = user.Roles.Any(r => r.Name.ToLower() == "moderator");
         var isStaff = isAdmin || isModerator;

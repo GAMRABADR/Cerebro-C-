@@ -51,7 +51,7 @@ public class StreamHelper : ModuleBase<SocketCommandContext>
             else
             {
                 // Verifica e ottimizza l'URL fornito
-                shareLink = await OptimizeVideoUrl(videoUrl);
+                shareLink = OptimizeVideoUrl(videoUrl);
             }
 
             var responseEmbed = new EmbedBuilder()
@@ -86,27 +86,19 @@ public class StreamHelper : ModuleBase<SocketCommandContext>
         // 3. Restituisci il link di Streamable
     }
 
-    private async Task<string> OptimizeVideoUrl(string url)
+    private string OptimizeVideoUrl(string? url)
     {
-        // Verifica il tipo di URL e ottimizza in base al servizio
-        await Task.CompletedTask; // Aggiunto per evitare il warning CS1998
-        if (url.Contains("drive.google.com"))
-        {
-            // Ottimizza link di Google Drive
-            return OptimizeGoogleDriveUrl(url);
-        }
-        else if (url.Contains("1drv.ms") || url.Contains("onedrive"))
-        {
-            // Ottimizza link di OneDrive
-            return OptimizeOneDriveUrl(url);
-        }
-        else if (url.Contains("wetransfer.com"))
-        {
-            // Restituisci il link diretto se possibile
-            return url;
-        }
+        if (string.IsNullOrEmpty(url))
+            return string.Empty;
 
-        // Se l'URL non è riconosciuto, restituisci quello originale
+        // Controlla se l'URL è di Google Drive
+        if (url.Contains("drive.google.com"))
+            return OptimizeGoogleDriveUrl(url);
+
+        // Controlla se l'URL è di OneDrive
+        if (url.Contains("1drv.ms") || url.Contains("onedrive.live.com"))
+            return OptimizeOneDriveUrl(url);
+
         return url;
     }
 

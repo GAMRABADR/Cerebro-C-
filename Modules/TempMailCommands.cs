@@ -81,9 +81,15 @@ public class TempMailCommands : ModuleBase<SocketCommandContext>
     {
         var userId = Context.User.Id;
         
-        if (!userEmails.TryGetValue(userId, out string email))
+        if (!userEmails.TryGetValue(userId, out string? email))
         {
             await ReplyAsync("❌ Non hai un'email temporanea attiva. Usa `!tempmail` per generarne una.");
+            return;
+        }
+
+        if (email == null)
+        {
+            await ReplyAsync("❌ Si è verificato un errore con l'email temporanea. Prova a generarne una nuova.");
             return;
         }
 
@@ -150,8 +156,14 @@ public class TempMailCommands : ModuleBase<SocketCommandContext>
     {
         var userId = Context.User.Id;
         
-        if (userEmails.TryRemove(userId, out string email))
+        if (userEmails.TryRemove(userId, out string? email))
         {
+            if (email == null)
+            {
+                await ReplyAsync("❌ Si è verificato un errore durante l'eliminazione dell'email temporanea.");
+                return;
+            }
+
             var embed = new EmbedBuilder()
                 .WithTitle("🗑️ Email Temporanea Eliminata")
                 .WithDescription($"L'email `{email}` è stata eliminata con successo.")
