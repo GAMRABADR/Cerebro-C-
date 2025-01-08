@@ -5,7 +5,7 @@ using System.Text;
 using System.Diagnostics;
 using System.Reflection;
 
-namespace IA_CEREBRO.Modules;
+namespace Cerebro.Modules
 
 public class SystemCommands : ModuleBase<SocketCommandContext>
 {

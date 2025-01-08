@@ -2,7 +2,7 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 
-namespace IA_CEREBRO.Modules;
+namespace Cerebro.Modules
 
 [Summary("Sistema di logging per il server")]
 public class LoggingService : ModuleBase<SocketCommandContext>

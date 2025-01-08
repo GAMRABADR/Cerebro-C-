@@ -2,7 +2,7 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 
-namespace IA_CEREBRO.Modules;
+namespace Cerebro.Modules
 
 public class WelcomeCommands : ModuleBase<SocketCommandContext>
 {

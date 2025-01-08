@@ -3,7 +3,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 using System.Threading.Tasks;
 
-namespace IA_CEREBRO.Modules
+namespace Cerebro.Modules
 {
     public class AdminCommands : ModuleBase<SocketCommandContext>
     {

@@ -5,8 +5,10 @@ using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Threading.Tasks;
+using Cerebro.Modules;  // Aggiungere questa riga
 
-namespace IA_CEREBRO.Modules
+namespace Cerebro.Modules
+
 {
     public class AudioCommands : ModuleBase<SocketCommandContext>
     {

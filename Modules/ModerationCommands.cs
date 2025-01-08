@@ -2,7 +2,7 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 
-namespace IA_CEREBRO.Modules;
+namespace Cerebro.Modules
 
 [Summary("Comandi per la moderazione del server")]
 public class ModerationCommands : ModuleBase<SocketCommandContext>

@@ -3,7 +3,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 using System.Collections.Concurrent;
 
-namespace IA_CEREBRO.Modules;
+namespace Cerebro.Modules
 
 [Summary("Gestione dei ruoli tramite reazioni")]
 public class RoleManager : ModuleBase<SocketCommandContext>

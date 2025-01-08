@@ -4,7 +4,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Collections.Concurrent;
 
-namespace IA_CEREBRO.Modules;
+namespace Cerebro.Modules
 
 public class TempMailCommands : ModuleBase<SocketCommandContext>
 {

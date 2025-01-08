@@ -3,7 +3,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 using System.Net.Http;
 
-namespace IA_CEREBRO.Modules;
+namespace Cerebro.Modules
 
 public class StreamHelper : ModuleBase<SocketCommandContext>
 {

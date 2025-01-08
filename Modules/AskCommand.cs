@@ -5,7 +5,8 @@ using System.Text.Json;
 using System.Text;
 using System.Collections.Generic;
 
-namespace IA_CEREBRO.Modules;
+namespace Cerebro.Modules
+
 
 public class AskCommand : ModuleBase<SocketCommandContext>
 {

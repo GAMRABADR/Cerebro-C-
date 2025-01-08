@@ -4,7 +4,7 @@ using IA_CEREBRO.Helpers;
 using System.Text;
 using System.Linq;
 
-namespace IA_CEREBRO.Modules;
+namespace Cerebro.Modules
 
 public class GameNewsCommands : ModuleBase<SocketCommandContext>
 {
