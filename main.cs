@@ -33,7 +33,12 @@ public class Program
         _services = new ServiceCollection()
             .AddSingleton(_client)
             .AddSingleton(_commands)
-            .AddSingleton<VoiceConnectionHandler>()
+            .AddLogging(builder =>
+            {
+                builder.AddConsole();
+                builder.SetMinimumLevel(LogLevel.Information);
+            })
+            .AddSingleton<VoiceService>()
             .BuildServiceProvider();
 
         _keepAlive = new KeepAlive();

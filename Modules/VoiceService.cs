@@ -44,7 +44,7 @@ namespace Cerebro.Modules
             {
                 if (_voiceStates.TryGetValue(server.Guild.Id, out var state) && !state.IsReconnecting)
                 {
-                    _logger.LogInformation($"Voice server updated: Guild={server.Guild.Name}");
+                    _logger.LogInformation($"Voice server updated: Guild={server.Guild.Id}");
                     await ReconnectAsync(state);
                 }
             }
@@ -80,7 +80,7 @@ namespace Cerebro.Modules
             return Task.CompletedTask;
         }
 
-        private void UpdateVoiceState(ulong guildId, SocketVoiceChannel channel)
+        private void UpdateVoiceState(ulong guildId, SocketVoiceChannel? channel)
         {
             if (_voiceStates.TryGetValue(guildId, out var state))
             {
@@ -209,8 +209,8 @@ namespace Cerebro.Modules
         private class VoiceState
         {
             public ulong GuildId { get; }
-            public IVoiceChannel Channel { get; set; }
-            public SocketVoiceChannel CurrentChannel { get; set; }
+            public IVoiceChannel? Channel { get; set; }
+            public SocketVoiceChannel? CurrentChannel { get; set; }
             public bool IsReconnecting { get; set; }
             public int RetryCount { get; set; }
 
